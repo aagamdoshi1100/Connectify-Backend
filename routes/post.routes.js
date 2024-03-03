@@ -27,7 +27,7 @@ postRouter.post("/:userId/post", tokenVerify, async (req, res) => {
     const newPostCreationResponse = await post.create(req.body);
     const postWithUserDetailsPopulated = await newPostCreationResponse.populate(
       "user",
-      "firstname lastname email username _id",
+      "firstname lastname email username _id"
     );
     res.status(201).json({
       message: "New post created",
@@ -43,7 +43,7 @@ postRouter.post("/:postId/likeHandler", async (req, res) => {
     const getPost = await post.findOne({ _id: req.params.postId });
     if (getPost.likedBy.includes(req.body.likedBy)) {
       getPost.likedBy = getPost.likedBy.filter(
-        (item) => item !== req.body.likedBy,
+        (item) => item !== req.body.likedBy
       );
     } else {
       getPost.likedBy = [...getPost.likedBy, req.body.likedBy];
@@ -64,7 +64,7 @@ postRouter.post("/edit/:postId", async (req, res) => {
     const editedPost = await post.findOneAndUpdate(
       { _id: req.params.postId },
       req.body,
-      { new: true },
+      { new: true }
     );
     res.status(201).json({ success: true, editedPost });
   } catch (e) {
@@ -80,6 +80,31 @@ postRouter.delete("/:postId", async (req, res) => {
     res.status(200).json({ success: true, deletedPost });
   } catch (e) {
     res.status(500).json({ message: "Server Error", e });
+  }
+});
+
+postRouter.post("/:postId/comment", async (req, res) => {
+  if (Object.keys(req.body).length === 0) {
+    res.status(400).json({
+      message: "The request body is missing or invalid",
+    });
+  }
+  try {
+    const getPostById = await post.findOne({ _id: req.params.postId });
+    if (!getPostById) {
+      res.status(404).json({
+        message: " The post with the specified ID does not exist.",
+      });
+    } else {
+      getPostById.comment = [...getPostById.comment, req.body];
+      const updatedResponse = await getPostById.save();
+      res.status(201).json({
+        message: "Comment added successfully",
+        data: updatedResponse.comment,
+      });
+    }
+  } catch (e) {
+    res.status(500).json({ message: e.message });
   }
 });
 

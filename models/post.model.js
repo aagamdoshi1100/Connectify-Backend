@@ -16,13 +16,15 @@ const postSchema = new mongoose.Schema(
           type: mongoose.Schema.Types.ObjectId,
           ref: "user",
         },
-        text: String,
+        content: String,
+        date: String,
+        time: String,
       },
     ],
   },
   {
     timestamps: true,
-  },
+  }
 );
 
 const post = new mongoose.model("post", postSchema);
