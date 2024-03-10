@@ -4,7 +4,14 @@ const user = require("./authentication.model");
 const chatSchema = new mongoose.Schema({
   chats: [
     {
-      username: String,
+      senderId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "user",
+      },
+      recipientId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "user",
+      },
       message: String,
       date: String,
       time: String,
