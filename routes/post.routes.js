@@ -24,7 +24,7 @@ postRouter.post("/:userId/post", tokenVerify, async (req, res) => {
     const newPostCreationResponse = await post.create(req.body);
     const postWithUserDetailsPopulated = await newPostCreationResponse.populate(
       "user",
-      "firstname lastname email username _id"
+      "firstname lastname username _id profileIcon"
     );
     res.status(201).json({
       message: "New post created",
@@ -70,11 +70,11 @@ postRouter.post("/edit/:postId", tokenVerify, async (req, res) => {
         .status(404)
         .json({ message: "Post not found or invalid edit post request" });
     } else {
-      const editedPost = await post.findOneAndUpdate(
-        { _id: req.params.postId },
-        req.body.data,
-        { new: true }
-      );
+      const editedPost = await post
+        .findOneAndUpdate({ _id: req.params.postId }, req.body.data, {
+          new: true,
+        })
+        .populate("user", "firstname lastname username _id profileIcon");
       res.status(200).json({ editedPost });
     }
   } catch (err) {
