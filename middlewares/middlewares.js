@@ -35,11 +35,15 @@ const tokenVerify = async (req, res, next) => {
     }
     if (decoded.username === getUsername.username) {
       next();
+    } else {
+      res.status(401).json({
+        message: "Unauthorized access, please provide valid token",
+      });
     }
   } catch (err) {
-    res
-      .status(401)
-      .json({ message: "Unauthorized access, please provide valid token" });
+    res.status(401).json({
+      message: "Unauthorized access, please provide valid token",
+    });
   }
 };
 module.exports = { isAccountExist, accountNotExist, tokenVerify };
