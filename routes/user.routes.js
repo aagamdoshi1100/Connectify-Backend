@@ -23,9 +23,9 @@ userRouter.get("/", tokenVerify, async (req, res) => {
   }
 });
 
-userRouter.get("/:userId/profile", tokenVerify, async (req, res) => {
+userRouter.get("/:reqUserProfileId/profile", tokenVerify, async (req, res) => {
   try {
-    const userData = await user.findById(req.params.userId);
+    const userData = await user.findById(req.params.reqUserProfileId);
     if (!userData) {
       res.status(404).json({ message: "User not found" });
     } else {
