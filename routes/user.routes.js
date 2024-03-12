@@ -1,9 +1,10 @@
 const express = require("express");
 const post = require("../models/post.model");
 const user = require("../models/authentication.model");
+const { tokenVerify } = require("../middlewares/middlewares");
 const userRouter = express.Router();
 
-userRouter.get("/", async (req, res) => {
+userRouter.get("/", tokenVerify, async (req, res) => {
   try {
     const users = await user.find({});
     const removePassword = users.map((userDetails) => {
@@ -17,31 +18,31 @@ userRouter.get("/", async (req, res) => {
     } else {
       res.status(404).json({ message: "Users not found" });
     }
-  } catch (e) {
-    res.status(500).json({ error: e.message });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
-userRouter.get("/:userId/profile", async (req, res) => {
+userRouter.get("/:userId/profile", tokenVerify, async (req, res) => {
   try {
     const userData = await user.findById(req.params.userId);
     if (!userData) {
       res.status(404).json({ message: "User not found" });
+    } else {
+      const {
+        _doc: { password, ...userDataWithoutPassword },
+      } = userData;
+      res.status(200).json({
+        message: "Profile fetched",
+        profile: userDataWithoutPassword,
+      });
     }
-    const {
-      _doc: { password, ...userDataWithoutPassword },
-    } = userData;
-    res.status(200).json({
-      message: "Profile fetched",
-      profile: userDataWithoutPassword,
-    });
-  } catch (e) {
-    res.status(500).json(e);
-    console.error(e);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
-userRouter.post("/:userId/profileImage", async (req, res) => {
+userRouter.put("/:userId/profileImage", tokenVerify, async (req, res) => {
   try {
     const response = await user.findByIdAndUpdate(req.params.userId, req.body, {
       new: true,
@@ -54,7 +55,7 @@ userRouter.post("/:userId/profileImage", async (req, res) => {
         like: 0,
         dislike: 0,
       };
-      const newPostCreationResponse = await post.create(postDetails);
+      await post.create(postDetails); //This will update profile pic and post will be created with the profile pic
     }
     const {
       _doc: { password, ...userProfileWithoutPassword },
@@ -63,19 +64,17 @@ userRouter.post("/:userId/profileImage", async (req, res) => {
       message: "Profile image updated",
       profile: userProfileWithoutPassword,
     });
-  } catch (e) {
-    res.status(500).json(e);
-    console.error(e);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
-userRouter.post("/:userId/edit", async (req, res) => {
-  console.log(req.body);
+userRouter.put("/:userId/edit", tokenVerify, async (req, res) => {
   try {
     const response = await user.findByIdAndUpdate(
       req.params.userId,
       req.body.data,
-      { new: true },
+      { new: true }
     );
     const {
       _doc: { password, ...userProfileWithoutPassword },
@@ -84,9 +83,8 @@ userRouter.post("/:userId/edit", async (req, res) => {
       message: "Profile updated",
       profile: userProfileWithoutPassword,
     });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json(e);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 

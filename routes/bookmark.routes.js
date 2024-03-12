@@ -1,9 +1,10 @@
 const express = require("express");
 const bookmark = require("../models/bookmark.model");
+const { tokenVerify } = require("../middlewares/middlewares");
 
 const bookmarkRouter = express.Router();
 
-bookmarkRouter.post("/:postId/:userId", async (req, res) => {
+bookmarkRouter.post("/:postId/:userId", tokenVerify, async (req, res) => {
   console.log(req.params.postId, req.params.userId);
   try {
     const getBookmark = await bookmark.findOne({ userId: req.params.userId });
@@ -13,8 +14,7 @@ bookmarkRouter.post("/:postId/:userId", async (req, res) => {
         userId: req.params.userId,
       });
       res.status(200).json({
-        success: true,
-        message: "bookmark created successfully",
+        message: "Bookmark created successfully",
         bookmarks: addBookmark.bookmarks,
       });
     } else {
@@ -24,31 +24,33 @@ bookmarkRouter.post("/:postId/:userId", async (req, res) => {
         });
         const savebookmark = await getBookmark.save();
         res.status(200).json({
-          success: true,
-          message: "bookmark removed successfully",
+          message: "Bookmark removed successfully",
           bookmarks: savebookmark.bookmarks,
         });
       } else {
         getBookmark.bookmarks = [...getBookmark.bookmarks, req.params.postId];
         await getBookmark.save();
         res.status(200).json({
-          success: true,
-          message: "bookmark added successfully",
+          message: "Bookmark added successfully",
           bookmarks: getBookmark.bookmarks,
         });
       }
     }
-  } catch (e) {
-    res.status(500).json({ success: false, message: "Server Error", e });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
-bookmarkRouter.get("/:userId", async (req, res) => {
+bookmarkRouter.get("/:userId", tokenVerify, async (req, res) => {
   try {
     const getBookmark = await bookmark.findOne({ userId: req.params.userId });
-    res.status(200).json({ success: true, bookmarks: getBookmark.bookmarks });
-  } catch (e) {
-    res.status(500).json({ success: false, message: "Server Error", e });
+    if (getBookmark) {
+      res.status(200).json({ bookmarks: getBookmark.bookmarks });
+    } else {
+      res.status(200).json({ bookmarks: [] });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 

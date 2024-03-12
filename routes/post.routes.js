@@ -4,21 +4,18 @@ const post = require("../models/post.model");
 const postRouter = express.Router();
 const { tokenVerify } = require("../middlewares/middlewares");
 
-postRouter.get("/", async (req, res) => {
+postRouter.get("/", tokenVerify, async (req, res) => {
   try {
     const posts = await post
       .find({})
       .populate("user", "firstname lastname username _id profileIcon");
     res.status(200).json({
-      success: true,
       posts,
     });
-  } catch (e) {
+  } catch (err) {
     res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
+      message: err.message,
     });
-    console.log(e, "posts");
   }
 });
 
@@ -33,57 +30,74 @@ postRouter.post("/:userId/post", tokenVerify, async (req, res) => {
       message: "New post created",
       data: postWithUserDetailsPopulated,
     });
-  } catch (e) {
-    res.status(500).json({ message: "Server Error", e });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
-postRouter.post("/:postId/likeHandler", async (req, res) => {
+postRouter.post("/:postId/likeHandler", tokenVerify, async (req, res) => {
   try {
     const getPost = await post.findOne({ _id: req.params.postId });
     if (getPost.likedBy.includes(req.body.likedBy)) {
       getPost.likedBy = getPost.likedBy.filter(
         (item) => item !== req.body.likedBy
       );
+      await getPost.save();
+      res.status(200).json({
+        postId: req.params.postId,
+        likedBy: req.body.likedBy,
+        message: "Post disliked",
+      });
     } else {
       getPost.likedBy = [...getPost.likedBy, req.body.likedBy];
+      await getPost.save();
+      res.status(200).json({
+        postId: req.params.postId,
+        likedBy: req.body.likedBy,
+        message: "Post liked",
+      });
     }
-    const savePost = await getPost.save();
-    res.status(201).json({
-      success: true,
-      postId: req.params.postId,
-      likedBy: req.body.likedBy,
-    });
-  } catch (e) {
-    res.status(500).json({ message: "Server Error", e });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
-postRouter.post("/edit/:postId", async (req, res) => {
+postRouter.post("/edit/:postId", tokenVerify, async (req, res) => {
   try {
-    const editedPost = await post.findOneAndUpdate(
-      { _id: req.params.postId },
-      req.body,
-      { new: true }
-    );
-    res.status(201).json({ success: true, editedPost });
-  } catch (e) {
-    res.status(500).json({ message: "Server Error", e });
+    const isPostExist = await post.findOne({ _id: req.params.postId });
+    if (!isPostExist) {
+      res
+        .status(404)
+        .json({ message: "Post not found or invalid edit post request" });
+    } else {
+      const editedPost = await post.findOneAndUpdate(
+        { _id: req.params.postId },
+        req.body.data,
+        { new: true }
+      );
+      res.status(200).json({ editedPost });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
-postRouter.delete("/:postId", async (req, res) => {
+postRouter.delete("/:postId", tokenVerify, async (req, res) => {
   try {
     const deletedPost = await post.findOneAndDelete({
       _id: req.params.postId,
     });
-    res.status(200).json({ success: true, deletedPost });
-  } catch (e) {
-    res.status(500).json({ message: "Server Error", e });
+    if (!deletedPost) {
+      res.status(404).json({ message: "Post not found" });
+    } else {
+      res.status(200).json({ deletedPost });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
-postRouter.post("/:postId/comment", async (req, res) => {
+postRouter.post("/:postId/comment", tokenVerify, async (req, res) => {
   if (Object.keys(req.body).length === 0) {
     res.status(400).json({
       message: "The request body is missing or invalid",
@@ -103,8 +117,8 @@ postRouter.post("/:postId/comment", async (req, res) => {
         data: updatedResponse.comment,
       });
     }
-  } catch (e) {
-    res.status(500).json({ message: e.message });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
