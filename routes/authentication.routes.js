@@ -18,7 +18,8 @@ authRouter.post("/login", accountNotExist, async (req, res) => {
     const response = await user.findOne({ username });
     const decoded = await bcrypt.compare(password, response.password);
     if (response.username === username && decoded) {
-      const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: "24h" });
+      const userId = response._id;
+      const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: "24h" });
       res
         .status(200)
         .json({ loggedInUser: response, message: "Login success", token });
@@ -46,7 +47,7 @@ authRouter.post("/signup", isAccountExist, async (req, res) => {
       bio: "",
       country: "",
     });
-    const token = jwt.sign({ username: response.username }, JWT_SECRET);
+    const token = jwt.sign({ username: response._id }, JWT_SECRET);
     res.status(201).json({
       message: "New user created",
       data: { createdUser: response, token },
