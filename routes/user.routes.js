@@ -2,6 +2,7 @@ const express = require("express");
 const post = require("../models/post.model");
 const user = require("../models/authentication.model");
 const { tokenVerify } = require("../middlewares/middlewares");
+const feedback = require("../models/feedback.model");
 const userRouter = express.Router();
 
 userRouter.get("/", tokenVerify, async (req, res) => {
@@ -99,6 +100,35 @@ userRouter.delete("/:userId/delete", tokenVerify, async (req, res) => {
       res.status(200).json({
         message: `User ${userRes.username} has been deleted`,
         userId: req.params.userId,
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+userRouter.post("/:userId/feedback", tokenVerify, async (req, res) => {
+  try {
+    const isFeedbackAlreadyGiven = await feedback.findOne({
+      userId: req.params.userId,
+    });
+    if (!isFeedbackAlreadyGiven) {
+      const create = await feedback.create({
+        ...req.body,
+        rating: [req.body.rating],
+        message: [req.body.message],
+      });
+      res.status(201).json({
+        message: "Feedback submitted",
+        feedback: create,
+      });
+    } else {
+      isFeedbackAlreadyGiven.rating.push(req.body.rating);
+      isFeedbackAlreadyGiven.message.push(req.body.message);
+      await isFeedbackAlreadyGiven.save();
+      res.status(201).json({
+        message: "Feedback submitted",
+        feedback: isFeedbackAlreadyGiven,
       });
     }
   } catch (err) {
