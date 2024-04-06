@@ -24,15 +24,23 @@ const accountNotExist = async (req, res, next) => {
 };
 
 const tokenVerify = async (req, res, next) => {
-
-  const decoded = jwt.verify(req.headers.authorization, process.env.SECRET);
-  const getUsername = await user.findOne({ _id: req.params.userId });
-  if (decoded.username === getUsername.username) {
-    next();
-  } else {
-    res
-      .status(401)
-      .json({ message: "Unauthorized access, please provide valid token" });
+  try {
+    const decoded = jwt.verify(req.headers.authorization, process.env.SECRET);
+    if (
+      decoded.userId === req.params.userId ||
+      decoded.userId === req.body.userId ||
+      decoded.userId === req.query.userId
+    ) {
+      next();
+    } else {
+      res.status(401).json({
+        message: "Unauthorized access, please provide valid token",
+      });
+    }
+  } catch (err) {
+    res.status(401).json({
+      message: "Unauthorized access, please provide valid token",
+    });
   }
 };
 module.exports = { isAccountExist, accountNotExist, tokenVerify };

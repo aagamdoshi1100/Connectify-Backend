@@ -17,75 +17,61 @@ const http = require("http");
 const server = http.createServer(app);
 const { Server } = require("socket.io");
 const io = new Server(server, {
+  pingTimeout: 60000,
   cors: {
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:3001",
-      "https://connectify-react-app.netlify.app",
-      "https://improved-fortnight-45ggpgvqjjxh7rp9-3000.app.github.dev",
-      "https://improved-fortnight-45ggpgvqjjxh7rp9-3001.app.github.dev",
-      "*",
-    ],
+    origin: "*",
     methods: ["GET", "POST"],
   },
 });
 
+let clientsInRoom = [];
 io.on("connection", (socket) => {
-  console.log("User connected", socket.id);
+  console.log(`User ${socket.id} connected`);
 
   socket.on("Join_Room", async (data) => {
-    const type1 = data.loggedUserId + data.targetUserId;
-    const type2 = data.targetUserId + data.loggedUserId;
-    console.log("check_received_ids", data);
-    try {
-      const findRoom = await chat.findOne({
-        $or: [{ room: type1 }, { room: type2 }],
-      });
-
-      if (!findRoom) {
-        const newChatRoom = await chat.create({
-          chats: [],
-          room: type1,
-          user1: data.loggedUserId,
-          user2: data.targetUserId,
-        });
-        console.log(newChatRoom, "create_because_no_room_found");
-        socket.join(newChatRoom.room);
-        console.log(
-          `User ${data.loggedUserId} connected to room ${newChatRoom.room}`
-        );
-      } else {
-        console.log(
-          `User ${data.loggedUserId} connected to room ${findRoom.room}`
-        );
-        socket.join(findRoom.room);
-      }
-    } catch (e) {
-      console.error(e);
-    }
+    socket.join(data.roomId);
+    clientsInRoom = [...clientsInRoom, { [data.senderId]: socket.id }];
+    console.log(clientsInRoom);
   });
 
   socket.on("Send_Message", async (data) => {
-    const type1 = data.loggedUserId + data.targetUserId;
-    const type2 = data.targetUserId + data.loggedUserId;
+    console.log(data);
+    const type1 = data.senderId + data.recipientId;
+    const type2 = data.recipientId + data.senderId;
+    recipientSocket = clientsInRoom.find((clientDetails) =>
+      Object.keys(clientDetails).includes(data.recipientId)
+    );
+    console.log(type1, type2, "types", recipientSocket);
     try {
-      let updateChat = await chat.findOne({
+      // Check room exist or not
+      const findRoom = await chat.findOne({
         $or: [{ room: type1 }, { room: type2 }],
       });
-
-      if (updateChat) {
-        updateChat.chats.push(data.message);
-        await updateChat.save();
-        socket.to(updateChat.room).emit("Receive_Message", data.message);
-      } else {
-        updateChat = await chat.create({
-          chats: [data.message],
+      // if room not exist then create room and add first message
+      if (!findRoom) {
+        const newChatRoom = await chat.create({
+          chats: [data],
           room: type1,
-          user1: data.loggedUserId,
-          user2: data.targetUserId,
+          user1: data.senderId,
+          user2: data.recipientId,
         });
-        await updateChat.save();
-        socket.to(updateChat.room).emit("Receive_Message", updateChat);
+        // If the recipient is offline then do not emit
+        if (recipientSocket) {
+          io.to(recipientSocket[data.recipientId]).emit(
+            "Receive_Message",
+            data
+          );
+        }
+      } else {
+        findRoom.chats.push(data);
+        await findRoom.save();
+        if (recipientSocket) {
+          // If the recipient is offline then do not emit
+          io.to(recipientSocket[data.recipientId]).emit(
+            "Receive_Message",
+            data
+          );
+        }
       }
     } catch (e) {
       console.error(e);
@@ -93,7 +79,10 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    console.log("user disconnected", socket.id);
+    clientsInRoom = clientsInRoom.filter(
+      (socketId) => !Object.values(socketId).includes(socket.id)
+    );
+    console.log(`User ${socket.id} disconnected`);
   });
 });
 

@@ -1,9 +1,11 @@
 const express = require("express");
 const post = require("../models/post.model");
 const user = require("../models/authentication.model");
+const { tokenVerify } = require("../middlewares/middlewares");
+const feedback = require("../models/feedback.model");
 const userRouter = express.Router();
 
-userRouter.get("/", async (req, res) => {
+userRouter.get("/", tokenVerify, async (req, res) => {
   try {
     const users = await user.find({});
     const removePassword = users.map((userDetails) => {
@@ -17,31 +19,31 @@ userRouter.get("/", async (req, res) => {
     } else {
       res.status(404).json({ message: "Users not found" });
     }
-  } catch (e) {
-    res.status(500).json({ error: e.message });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
-userRouter.get("/:userId/profile", async (req, res) => {
+userRouter.get("/:reqUserProfileId/profile", tokenVerify, async (req, res) => {
   try {
-    const userData = await user.findById(req.params.userId);
+    const userData = await user.findById(req.params.reqUserProfileId);
     if (!userData) {
       res.status(404).json({ message: "User not found" });
+    } else {
+      const {
+        _doc: { password, ...userDataWithoutPassword },
+      } = userData;
+      res.status(200).json({
+        message: "Profile fetched",
+        profile: userDataWithoutPassword,
+      });
     }
-    const {
-      _doc: { password, ...userDataWithoutPassword },
-    } = userData;
-    res.status(200).json({
-      message: "Profile fetched",
-      profile: userDataWithoutPassword,
-    });
-  } catch (e) {
-    res.status(500).json(e);
-    console.error(e);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
-userRouter.post("/:userId/profileImage", async (req, res) => {
+userRouter.put("/:userId/profileImage", tokenVerify, async (req, res) => {
   try {
     const response = await user.findByIdAndUpdate(req.params.userId, req.body, {
       new: true,
@@ -54,7 +56,7 @@ userRouter.post("/:userId/profileImage", async (req, res) => {
         like: 0,
         dislike: 0,
       };
-      const newPostCreationResponse = await post.create(postDetails);
+      await post.create(postDetails); //This will update profile pic and post will be created with the profile pic
     }
     const {
       _doc: { password, ...userProfileWithoutPassword },
@@ -63,19 +65,17 @@ userRouter.post("/:userId/profileImage", async (req, res) => {
       message: "Profile image updated",
       profile: userProfileWithoutPassword,
     });
-  } catch (e) {
-    res.status(500).json(e);
-    console.error(e);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
-userRouter.post("/:userId/edit", async (req, res) => {
-  console.log(req.body);
+userRouter.put("/:userId/edit", tokenVerify, async (req, res) => {
   try {
     const response = await user.findByIdAndUpdate(
       req.params.userId,
       req.body.data,
-      { new: true },
+      { new: true }
     );
     const {
       _doc: { password, ...userProfileWithoutPassword },
@@ -84,9 +84,55 @@ userRouter.post("/:userId/edit", async (req, res) => {
       message: "Profile updated",
       profile: userProfileWithoutPassword,
     });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json(e);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+userRouter.delete("/:userId/delete", tokenVerify, async (req, res) => {
+  try {
+    const userRes = await user.findByIdAndDelete(req.params.userId);
+    if (!userRes) {
+      res.status(404).json({
+        message: `User ${req.params.userId} not found or may be already deleted`,
+      });
+    } else {
+      res.status(200).json({
+        message: `User ${userRes.username} has been deleted`,
+        userId: req.params.userId,
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+userRouter.post("/:userId/feedback", tokenVerify, async (req, res) => {
+  try {
+    const isFeedbackAlreadyGiven = await feedback.findOne({
+      userId: req.params.userId,
+    });
+    if (!isFeedbackAlreadyGiven) {
+      const create = await feedback.create({
+        ...req.body,
+        rating: [req.body.rating],
+        message: [req.body.message],
+      });
+      res.status(201).json({
+        message: "Feedback submitted",
+        feedback: create,
+      });
+    } else {
+      isFeedbackAlreadyGiven.rating.push(req.body.rating);
+      isFeedbackAlreadyGiven.message.push(req.body.message);
+      await isFeedbackAlreadyGiven.save();
+      res.status(201).json({
+        message: "Feedback submitted",
+        feedback: isFeedbackAlreadyGiven,
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 

@@ -17,8 +17,9 @@ authRouter.post("/login", accountNotExist, async (req, res) => {
   try {
     const response = await user.findOne({ username });
     const decoded = await bcrypt.compare(password, response.password);
-     if (response.username === username && decoded) {
-      const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: "24h" });
+    if (response.username === username && decoded) {
+      const userId = response._id;
+      const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: "24h" });
       res
         .status(200)
         .json({ loggedInUser: response, message: "Login success", token });
@@ -31,8 +32,7 @@ authRouter.post("/login", accountNotExist, async (req, res) => {
 });
 
 authRouter.post("/signup", isAccountExist, async (req, res) => {
-  const { email, username, password, firstname, lastname, profileIcon } =
-    req.body;
+  const { email, username, password, firstname, lastname } = req.body;
   try {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
@@ -43,11 +43,11 @@ authRouter.post("/signup", isAccountExist, async (req, res) => {
       firstname,
       lastname,
       profileIcon: "",
-      dob:"",
-      bio:"",
-      country:""
+      dob: "",
+      bio: "",
+      country: "",
     });
-    const token = jwt.sign({ username: response.username }, JWT_SECRET);
+    const token = jwt.sign({ username: response._id }, JWT_SECRET);
     res.status(201).json({
       message: "New user created",
       data: { createdUser: response, token },
