@@ -4,7 +4,6 @@ const chat = require("../models/chat.model");
 const chatRouter = express.Router();
 
 chatRouter.get("/user/:loggedUserId", async (req, res) => {
-  //console.log(req.params.loggedUserId, "s1");
   try {
     const response = await chat
       .find({
@@ -49,7 +48,6 @@ chatRouter.get("/user/:loggedUserId", async (req, res) => {
 chatRouter.get("/:senderId/:recipientId", async (req, res) => {
   const type1 = req.params.senderId + req.params.recipientId;
   const type2 = req.params.recipientId + req.params.senderId;
-  console.log("s2");
   try {
     const isRoomExistForProfile = await chat.findOne({
       $or: [{ room: type1 }, { room: type2 }],

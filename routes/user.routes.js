@@ -1,6 +1,9 @@
 const express = require("express");
 const post = require("../models/post.model");
 const user = require("../models/authentication.model");
+const follow = require("../models/follow.model");
+const bookmark = require("../models/bookmark.model");
+const chat = require("../models/chat.model");
 const { tokenVerify } = require("../middlewares/middlewares");
 const feedback = require("../models/feedback.model");
 const userRouter = express.Router();
@@ -89,23 +92,58 @@ userRouter.put("/:userId/edit", tokenVerify, async (req, res) => {
   }
 });
 
-userRouter.delete("/:userId/delete", tokenVerify, async (req, res) => {
-  try {
-    const userRes = await user.findByIdAndDelete(req.params.userId);
-    if (!userRes) {
-      res.status(404).json({
-        message: `User ${req.params.userId} not found or may be already deleted`,
+userRouter.delete(
+  "/:userId/:username/delete",
+  tokenVerify,
+  async (req, res) => {
+    try {
+      //Delete Chat rooms
+      await chat.deleteMany({
+        $or: [{ user1: req.params.userId }, { user2: req.params.userId }],
       });
-    } else {
-      res.status(200).json({
-        message: `User ${userRes.username} has been deleted`,
+      //Delete post account
+      await post.deleteMany({
+        user: req.params.userId,
+      });
+      // Remove username/user from likedby and comment array from each post
+      let retrieveAllPosts = await post.find({});
+      retrieveAllPosts = retrieveAllPosts.map((post) => {
+        post.likedBy = post.likedBy.filter(
+          (person) => person !== req.params.username
+        );
+        post.comment = post.comment.filter(
+          (com) => com.user.toString() !== req.params.userId.toString()
+        );
+        return post;
+      });
+      for (const post of retrieveAllPosts) {
+        await post.save();
+      }
+      //Delete user follow details
+      await follow.findOneAndDelete({
+        user: req.params.userId,
+      });
+      //Delete user bookmark details
+      await bookmark.findOneAndDelete({
         userId: req.params.userId,
       });
+      //Delete user account
+      const userRes = await user.findByIdAndDelete(req.params.userId);
+      if (!userRes) {
+        res.status(404).json({
+          message: `User ${req.params.userId} not found or may be already deleted`,
+        });
+      } else {
+        res.status(200).json({
+          message: `User ${userRes.username} has been deleted`,
+          userId: req.params.userId,
+        });
+      }
+    } catch (err) {
+      res.status(500).json({ message: err.message });
     }
-  } catch (err) {
-    res.status(500).json({ message: err.message });
   }
-});
+);
 
 userRouter.post("/:userId/feedback", tokenVerify, async (req, res) => {
   try {
